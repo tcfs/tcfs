@@ -11,7 +11,7 @@ tcfsd: tcfsd.o
 
 tcfs.o: CFLAGS += $(FUSE_CFLAGS)
 
-tcfs: tcfs.o
+tcfs: tcfs.o utils.o
 	$(CC) $^ -o $@ -lfuse
 
 clean::
