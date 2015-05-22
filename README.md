@@ -16,7 +16,7 @@ make run
 - Client:
 
 ```
-git clone https://github.com/hmgle/tcfs-erl.git
+git clone https://github.com/hmgle/tcfs.git
 cd tcfs
 mkdir mountpoint
 make
