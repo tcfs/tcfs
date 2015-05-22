@@ -64,7 +64,7 @@ static int send_msg(int fd, char *buf, int len)
 
 static int tcfs_getattr(const char *path, struct stat *statbuf)
 {
-	int retstat = 0;
+	int retstat;
 	struct tcfs_ctx_s *tc = fuse_get_context()->private_data;
 	int sock = tc->sockfd;
 	int len;
@@ -74,11 +74,11 @@ static int tcfs_getattr(const char *path, struct stat *statbuf)
 	len = sprintf(tc->buf, "getattr%s", path);
 	(void)send_msg(sock, tc->buf, len);
 	ret = get_reply(sock, tc->buf);
-	assert(ret == 44); (void)ret;
 	retstat = buf_get_uint32(tc->buf);
 	memset(statbuf, 0, sizeof(*statbuf));
 	if (retstat != 0)
 		return -1;
+	assert(ret == 44); (void)ret;
 	statbuf->st_dev   = buf_get_uint32(tc->buf + 4);
 	statbuf->st_ino   = buf_get_uint32(tc->buf + 8);
 	statbuf->st_mode  = buf_get_uint32(tc->buf + 12);
@@ -94,7 +94,7 @@ static int tcfs_getattr(const char *path, struct stat *statbuf)
 
 static int tcfs_readlink(const char *path, char *link, size_t size)
 {
-	int retstat = 0;
+	int retstat = -1;
 
 	/* TODO */
 	debug_print("path: %s", path);
@@ -103,7 +103,7 @@ static int tcfs_readlink(const char *path, char *link, size_t size)
 
 static int tcfs_getdir(const char *path, fuse_dirh_t h, fuse_dirfil_t filler)
 {
-	int retstat = 0;
+	int retstat = -1;
 
 	/* TODO */
 	debug_print("path: %s", path);
@@ -112,7 +112,7 @@ static int tcfs_getdir(const char *path, fuse_dirh_t h, fuse_dirfil_t filler)
 
 static int tcfs_mknod(const char *path, mode_t mode, dev_t dev)
 {
-	int retstat = 0;
+	int retstat = -1;
 
 	/* TODO */
 	debug_print("path: %s", path);
@@ -121,7 +121,7 @@ static int tcfs_mknod(const char *path, mode_t mode, dev_t dev)
 
 static int tcfs_mkdir(const char *path, mode_t mode)
 {
-	int retstat = 0;
+	int retstat = -1;
 
 	/* TODO */
 	debug_print("path: %s", path);
@@ -130,7 +130,7 @@ static int tcfs_mkdir(const char *path, mode_t mode)
 
 static int tcfs_symlink(const char *path, const char *link)
 {
-	int retstat = 0;
+	int retstat = -1;
 
 	/* TODO */
 	debug_print("path: %s", path);
@@ -139,7 +139,7 @@ static int tcfs_symlink(const char *path, const char *link)
 
 static int tcfs_unlink(const char *path)
 {
-	int retstat = 0;
+	int retstat = -1;
 
 	/* TODO */
 	debug_print("path: %s", path);
@@ -148,7 +148,7 @@ static int tcfs_unlink(const char *path)
 
 static int tcfs_rmdir(const char *path)
 {
-	int retstat = 0;
+	int retstat = -1;
 
 	/* TODO */
 	debug_print("path: %s", path);
@@ -157,7 +157,7 @@ static int tcfs_rmdir(const char *path)
 
 static int tcfs_rename(const char *path, const char *newpath)
 {
-	int retstat = 0;
+	int retstat = -1;
 
 	/* TODO */
 	debug_print("path: %s", path);
@@ -166,7 +166,7 @@ static int tcfs_rename(const char *path, const char *newpath)
 
 static int tcfs_chmod(const char *path, mode_t mode)
 {
-	int retstat = 0;
+	int retstat = -1;
 
 	/* TODO */
 	debug_print("path: %s", path);
@@ -175,7 +175,7 @@ static int tcfs_chmod(const char *path, mode_t mode)
 
 static int tcfs_chown(const char *path, uid_t uid, gid_t gid)
 {
-	int retstat = 0;
+	int retstat = -1;
 
 	/* TODO */
 	debug_print("path: %s", path);
@@ -184,7 +184,7 @@ static int tcfs_chown(const char *path, uid_t uid, gid_t gid)
 
 static int tcfs_truncate(const char *path, off_t newsize)
 {
-	int retstat = 0;
+	int retstat = -1;
 
 	/* TODO */
 	debug_print("path: %s", path);
@@ -193,7 +193,7 @@ static int tcfs_truncate(const char *path, off_t newsize)
 
 static int tcfs_utime(const char *path, struct utimbuf *ubuf)
 {
-	int retstat = 0;
+	int retstat = -1;
 
 	/* TODO */
 	debug_print("path: %s", path);
@@ -202,7 +202,7 @@ static int tcfs_utime(const char *path, struct utimbuf *ubuf)
 
 static int tcfs_open(const char *path, struct fuse_file_info *fi)
 {
-	int retstat = 0;
+	int retstat = -1;
 
 	/* TODO */
 	debug_print("path: %s", path);
@@ -212,7 +212,7 @@ static int tcfs_open(const char *path, struct fuse_file_info *fi)
 static int tcfs_read(const char *path, char *rbuf, size_t size, off_t offset,
 			struct fuse_file_info *fi)
 {
-	int retstat = 0;
+	int retstat = -1;
 
 	/* TODO */
 	debug_print("path: %s", path);
@@ -222,7 +222,7 @@ static int tcfs_read(const char *path, char *rbuf, size_t size, off_t offset,
 static int tcfs_write(const char *path, const char *wbuf, size_t size,
 			off_t offset, struct fuse_file_info *fi)
 {
-	int retstat = 0;
+	int retstat = -1;
 
 	/* TODO */
 	debug_print("path: %s", path);
@@ -232,10 +232,29 @@ static int tcfs_write(const char *path, const char *wbuf, size_t size,
 int tcfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 		off_t offset, struct fuse_file_info *fi)
 {
-	int retstat = 0;
+	int retstat;
+	int len;
+	struct tcfs_ctx_s *tc = fuse_get_context()->private_data;
+	int sock = tc->sockfd;
+	ssize_t ret;
 
-	/* TODO */
 	debug_print("path: %s", path);
+	len = sprintf(tc->buf, "readdir%s", path);
+	(void)send_msg(sock, tc->buf, len);
+	ret = get_reply(sock, tc->buf);
+	retstat = buf_get_uint32(tc->buf);
+	if (retstat != 0)
+		return -1;
+	tc->buf[ret] = '\0';
+	filler(buf, ".", NULL, 0);
+	filler(buf, "..", NULL, 0);
+	const char *p;
+	for (p = tc->buf + 4;
+	     p - tc->buf < ret;
+	     p += strnlen(p, ret - (p - tc->buf)) + 1) {
+		debug_print("readdir: %s", p);
+		filler(buf, p, NULL, 0);
+	}
 	return retstat;
 }
 
