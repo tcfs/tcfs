@@ -116,9 +116,9 @@ ssize_t writevn(int fd, struct iovec *vector, int count, size_t n)
 
 uint32_t buf_get_uint32(const char *buf)
 {
-	/* XXX: 仅考虑小端字节序 */
 	uint32_t ret;
 
 	memcpy(&ret, buf, 4);
+	ret = ntohl(ret);
 	return ret;
 }
