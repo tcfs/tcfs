@@ -229,11 +229,27 @@ static int tcfs_open(const char *path, struct fuse_file_info *fi)
 static int tcfs_read(const char *path, char *rbuf, size_t size, off_t offset,
 			struct fuse_file_info *fi)
 {
-	int retstat = -1;
+	int retstat;
+	int len;
+	struct tcfs_ctx_s *tc = fuse_get_context()->private_data;
+	int sock = tc->sockfd;
+	ssize_t ret, readed;
 
-	/* TODO */
-	debug_print("path: %s", path);
-	return retstat;
+	len = sprintf(tc->buf, "read");
+	buf_add_uint32(tc->buf + len, fi->fh);
+	len += 4;
+	len += sprintf(tc->buf + len, "%s", path);
+	(void)send_msg(sock, tc->buf, len);
+	ret = get_reply(sock, tc->buf);
+	retstat = buf_get_uint32(tc->buf);
+	if (retstat < 0)
+		return -1;
+	assert(ret >= 8); (void)ret;
+	readed = buf_get_uint32(tc->buf + 4);
+	if (readed <= 0)
+		return readed;
+	memcpy(rbuf, tc->buf + 8, readed);
+	return readed;
 }
 
 static int tcfs_write(const char *path, const char *wbuf, size_t size,
