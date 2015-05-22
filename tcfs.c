@@ -202,11 +202,28 @@ static int tcfs_utime(const char *path, struct utimbuf *ubuf)
 
 static int tcfs_open(const char *path, struct fuse_file_info *fi)
 {
-	int retstat = -1;
+	int retstat;
+	int len;
+	struct tcfs_ctx_s *tc = fuse_get_context()->private_data;
+	int sock = tc->sockfd;
+	ssize_t ret;
 
-	/* TODO */
-	debug_print("path: %s", path);
-	return retstat;
+	len = sprintf(tc->buf, "open");
+	buf_add_uint32(tc->buf + len, fi->flags);
+	len += 4;
+	len += sprintf(tc->buf + len, "%s", path);
+	(void)send_msg(sock, tc->buf, len);
+	ret = get_reply(sock, tc->buf);
+	retstat = buf_get_uint32(tc->buf);
+	if (retstat != 0) {
+		fi->fh = -1;
+		return -1;
+	}
+	assert(ret == 8); (void)ret;
+	fi->fh = buf_get_uint32(tc->buf + 4);
+	if (fi->fh < 0)
+		return -1;
+	return 0;
 }
 
 static int tcfs_read(const char *path, char *rbuf, size_t size, off_t offset,

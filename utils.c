@@ -122,3 +122,9 @@ uint32_t buf_get_uint32(const char *buf)
 	ret = ntohl(ret);
 	return ret;
 }
+
+void buf_add_uint32(char *buf, uint32_t val)
+{
+	uint32_t nval = htonl(val);
+	memcpy(buf, &nval, 4);
+}
