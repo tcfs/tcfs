@@ -5,6 +5,9 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <string.h>
+#include <unistd.h>
+#include <getopt.h>
+#include <stdbool.h>
 #include <errno.h>
 #include <assert.h>
 #include <fuse.h>
@@ -309,30 +312,73 @@ struct fuse_operations tcfs_oper = {
 	.readdir  = tcfs_readdir,
 };
 
+static void usage(char **argv)
+{
+	fprintf(stderr, "Usage: %s [Options] <mountpoint>\n"
+			"\n"
+			"Options:\n"
+			" -h --help                Show this help\n"
+			" -d --debug               Show debug info\n"
+			" -s --server <server-ip>  Specify server ipaddr\n"
+			" -p --port <server-port>  Specify server port\n"
+			"\n", argv[0]);
+}
+
+static struct option long_opts[] = {
+	{"help",        no_argument, 0, 'h'},
+	{"debug",	no_argument, 0, 'd'},
+	{"server",	required_argument, 0, 's'},
+	{"port",	required_argument, 0, 'p'},
+	{0, 0, 0, 0}
+};
+
 int main(int argc, char **argv)
 {
 	int fuse_stat, fuse_argc;
+	const char *server = "127.0.0.1";
+	uint16_t port = 9876;
 	char *fuse_argv[4];
-	char *mount_point;
+	char *mount_point = NULL;
 	struct tcfs_ctx_s *tcfs_data;
+	int opt, index;
+	bool is_debug = false;
 
-	if (argc < 2) {
-		fprintf(stderr, "usage: %s mount_point\n", argv[0]);
-		exit(1);
+	while ((opt = getopt_long(argc, argv,
+			"hds:p:", long_opts, &index)) != -1) {
+		switch (opt) {
+		case 's':
+			server = optarg;
+			break;
+		case 'p':
+			port = atoi(optarg);
+			break;
+		case 'd':
+			is_debug = true;
+			break;
+		case '0':
+		case 'h':
+		default:
+			usage(argv);
+			exit(0);
+		}
 	}
-	mount_point = argv[1];
-
+	if (argc <= optind) {
+		usage(argv);
+		exit(1);
+	} else
+		mount_point = argv[optind];
 	tcfs_data = calloc(1, sizeof(*tcfs_data));
 	if (tcfs_data == NULL) {
 		perror("calloc");
 		exit(1);
 	}
-	tcfs_data->sockfd = client_connect("127.0.0.1", 9876);
+	tcfs_data->sockfd = client_connect(server, port);
 	assert(tcfs_data->sockfd > 0);
 	fuse_argc = 0;
 	fuse_argv[fuse_argc++] = "tcfs";
 	fuse_argv[fuse_argc++] = "-s"; /* single thread */
-	fuse_argv[fuse_argc++] = "-d"; /* debug and core dump */
+	if (is_debug)
+		fuse_argv[fuse_argc++] = "-d"; /* debug and core dump */
 	fuse_argv[fuse_argc++] = mount_point;
 	fuse_stat = fuse_main(fuse_argc, fuse_argv, &tcfs_oper, tcfs_data);
 	return fuse_stat;
