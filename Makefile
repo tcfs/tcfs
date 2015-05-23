@@ -2,12 +2,9 @@ CFLAGS := -Wall -Werror
 
 FUSE_CFLAGS = $(shell pkg-config fuse --cflags)
 
-TARGET = tcfsd tcfs
+TARGET = tcfs
 
 all:: $(TARGET)
-
-tcfsd: tcfsd.o
-	$(CC) $^ -o $@ -lev
 
 tcfs.o: CFLAGS += $(FUSE_CFLAGS)
 
