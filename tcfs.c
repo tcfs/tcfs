@@ -256,11 +256,23 @@ static int tcfs_read(const char *path, char *rbuf, size_t size, off_t offset,
 static int tcfs_write(const char *path, const char *wbuf, size_t size,
 			off_t offset, struct fuse_file_info *fi)
 {
-	int retstat = -1;
+	int len;
+	struct tcfs_ctx_s *tc = fuse_get_context()->private_data;
+	int sock = tc->sockfd;
+	ssize_t ret, readed;
 
-	/* TODO */
-	debug_print("path: %s", path);
-	return retstat;
+	len = sprintf(tc->buf, "write");
+	buf_add_uint32(tc->buf + len, fi->fh);
+	buf_add_uint32(tc->buf + len + 4, offset);
+	buf_add_uint32(tc->buf + len + 8, size);
+	len += 12;
+	memcpy(tc->buf + len, wbuf, size);
+	len += size;
+	(void)send_msg(sock, tc->buf, len);
+	ret = get_reply(sock, tc->buf);
+	assert(ret >= 4); (void)ret;
+	readed = buf_get_uint32(tc->buf);
+	return readed;
 }
 
 int tcfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
