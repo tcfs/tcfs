@@ -314,6 +314,24 @@ int tcfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	return retstat;
 }
 
+int tcfs_release(const char *path, struct fuse_file_info *fi)
+{
+	int retstat;
+	int len;
+	struct tcfs_ctx_s *tc = fuse_get_context()->private_data;
+	int sock = tc->sockfd;
+	ssize_t ret;
+
+	len = sprintf(tc->buf, "release");
+	buf_add_uint32(tc->buf + len, fi->fh);
+	len += 4;
+	(void)send_msg(sock, tc->buf, len);
+	ret = get_reply(sock, tc->buf);
+	assert(ret == 4); (void)ret;
+	retstat = buf_get_uint32(tc->buf);
+	return retstat;
+}
+
 struct fuse_operations tcfs_oper = {
 	.getattr  = tcfs_getattr,
 	.readlink = tcfs_readlink,
@@ -332,6 +350,7 @@ struct fuse_operations tcfs_oper = {
 	.read     = tcfs_read,
 	.write    = tcfs_write,
 	.readdir  = tcfs_readdir,
+	.release  = tcfs_release,
 };
 
 static void usage(char **argv)
