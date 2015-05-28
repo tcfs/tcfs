@@ -187,10 +187,20 @@ static int tcfs_chown(const char *path, uid_t uid, gid_t gid)
 
 static int tcfs_truncate(const char *path, off_t newsize)
 {
-	int retstat = -1;
+	int retstat;
+	int len;
+	struct tcfs_ctx_s *tc = fuse_get_context()->private_data;
+	int sock = tc->sockfd;
+	ssize_t ret;
 
-	/* TODO */
-	debug_print("path: %s", path);
+	len = sprintf(tc->buf, "truncate");
+	buf_add_uint32(tc->buf + len, newsize);
+	len += 4;
+	len += sprintf(tc->buf + len, "%s", path);
+	(void)send_msg(sock, tc->buf, len);
+	ret = get_reply(sock, tc->buf);
+	assert(ret == 4); (void)ret;
+	retstat = buf_get_uint32(tc->buf);
 	return retstat;
 }
 
