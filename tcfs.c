@@ -285,8 +285,8 @@ static int tcfs_write(const char *path, const char *wbuf, size_t size,
 	return readed;
 }
 
-int tcfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
-		off_t offset, struct fuse_file_info *fi)
+static int tcfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
+			off_t offset, struct fuse_file_info *fi)
 {
 	int retstat;
 	int len;
@@ -314,7 +314,7 @@ int tcfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	return retstat;
 }
 
-int tcfs_release(const char *path, struct fuse_file_info *fi)
+static int tcfs_release(const char *path, struct fuse_file_info *fi)
 {
 	int retstat;
 	int len;
