@@ -80,7 +80,7 @@ static int tcfs_getattr(const char *path, struct stat *statbuf)
 	retstat = buf_get_uint32(tc->buf);
 	memset(statbuf, 0, sizeof(*statbuf));
 	if (retstat != 0)
-		return -1;
+		return retstat;
 	assert(ret == 44); (void)ret;
 	statbuf->st_dev   = buf_get_uint32(tc->buf + 4);
 	statbuf->st_ino   = buf_get_uint32(tc->buf + 8);
