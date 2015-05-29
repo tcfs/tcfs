@@ -230,12 +230,11 @@ static int tcfs_open(const char *path, struct fuse_file_info *fi)
 	retstat = buf_get_uint32(tc->buf);
 	if (retstat != 0) {
 		fi->fh = -1;
-		return -1;
+		return retstat;
 	}
 	assert(ret == 8); (void)ret;
 	fi->fh = buf_get_uint32(tc->buf + 4);
-	if (fi->fh < 0)
-		return -1;
+	assert(fi->fh >= 0);
 	return 0;
 }
 
@@ -300,7 +299,7 @@ static int tcfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	ret = get_reply(sock, tc->buf);
 	retstat = buf_get_uint32(tc->buf);
 	if (retstat != 0)
-		return -1;
+		return retstat;
 	tc->buf[ret] = '\0';
 	filler(buf, ".", NULL, 0);
 	filler(buf, "..", NULL, 0);
@@ -332,6 +331,32 @@ static int tcfs_release(const char *path, struct fuse_file_info *fi)
 	return retstat;
 }
 
+static int tcfs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
+{
+	int retstat;
+	int len;
+	struct tcfs_ctx_s *tc = fuse_get_context()->private_data;
+	int sock = tc->sockfd;
+	ssize_t ret;
+
+	debug_print("create: %s", path);
+	len = sprintf(tc->buf, "create");
+	buf_add_uint32(tc->buf + len, mode);
+	len += 4;
+	len += sprintf(tc->buf + len, "%s", path);
+	(void)send_msg(sock, tc->buf, len);
+	ret = get_reply(sock, tc->buf);
+	retstat = buf_get_uint32(tc->buf);
+	if (retstat != 0) {
+		fi->fh = -1;
+		return retstat;
+	}
+	assert(ret == 8); (void)ret;
+	fi->fh = buf_get_uint32(tc->buf + 4);
+	assert(fi->fh >= 0);
+	return 0;
+}
+
 struct fuse_operations tcfs_oper = {
 	.getattr  = tcfs_getattr,
 	.readlink = tcfs_readlink,
@@ -351,6 +376,7 @@ struct fuse_operations tcfs_oper = {
 	.write    = tcfs_write,
 	.readdir  = tcfs_readdir,
 	.release  = tcfs_release,
+	.create   = tcfs_create,
 };
 
 static void usage(char **argv)
