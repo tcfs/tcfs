@@ -10,5 +10,7 @@ ssize_t writevn(int fd, struct iovec *vector, int count, size_t n);
 
 uint32_t buf_get_uint32(const char *buf);
 void buf_add_uint32(char *buf, uint32_t val);
+uint64_t buf_get_uint62(const char *buf);
+void buf_add_uint64(char *buf, uint64_t val);
 
 #endif

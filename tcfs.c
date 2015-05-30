@@ -206,10 +206,22 @@ static int tcfs_truncate(const char *path, off_t newsize)
 
 static int tcfs_utime(const char *path, struct utimbuf *ubuf)
 {
-	int retstat = -1;
+	int retstat;
+	int len;
+	struct tcfs_ctx_s *tc = fuse_get_context()->private_data;
+	int sock = tc->sockfd;
+	ssize_t ret;
 
-	/* TODO */
-	debug_print("path: %s", path);
+	len = sprintf(tc->buf, "utime");
+	buf_add_uint64(tc->buf + len, ubuf->actime);
+	len += 8;
+	buf_add_uint64(tc->buf + len, ubuf->modtime);
+	len += 8;
+	len += sprintf(tc->buf + len, "%s", path);
+	(void)send_msg(sock, tc->buf, len);
+	ret = get_reply(sock, tc->buf);
+	assert(ret == 4); (void)ret;
+	retstat = buf_get_uint32(tc->buf);
 	return retstat;
 }
 
