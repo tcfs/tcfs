@@ -124,11 +124,23 @@ static int tcfs_mknod(const char *path, mode_t mode, dev_t dev)
 
 static int tcfs_mkdir(const char *path, mode_t mode)
 {
-	int retstat = -1;
+	int retstat;
+	int len;
+	struct tcfs_ctx_s *tc = fuse_get_context()->private_data;
+	int sock = tc->sockfd;
+	ssize_t ret;
 
-	/* TODO */
-	debug_print("path: %s", path);
-	return retstat;
+	len = sprintf(tc->buf, "mkdir");
+	buf_add_uint32(tc->buf + len, mode);
+	len += 4;
+	len += sprintf(tc->buf + len, "%s", path);
+	(void)send_msg(sock, tc->buf, len);
+	ret = get_reply(sock, tc->buf);
+	retstat = buf_get_uint32(tc->buf);
+	if (retstat != 0)
+		return retstat;
+	assert(ret == 4); (void)ret;
+	return 0;
 }
 
 static int tcfs_symlink(const char *path, const char *link)
