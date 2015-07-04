@@ -16,10 +16,11 @@ make run
 - Client:
 
 ```
+sudo apt-get install libfuse-dev
 git clone https://github.com/hmgle/tcfs.git
 cd tcfs
 mkdir mountpoint
 make
-./tcfs mountpoint
+./tcfs --server 127.0.0.1 mountpoint
 ls -shal mountpoint
 ```
