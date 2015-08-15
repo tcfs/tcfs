@@ -40,10 +40,10 @@ static int get_reply(int fd, char *buf)
 {
 	int ret, n;
 
-	ret = readn(fd, buf, 2);
+	ret = readn(fd, buf, 4);
 	if (ret <= 0)
 		return ret;
-	n = *(uint8_t *)buf * 256 + *(uint8_t *)(buf+1);
+	n = buf_get_uint32(buf);
 	ret = readn(fd, buf, n);
 	assert(ret == n);
 	return ret;
@@ -51,17 +51,19 @@ static int get_reply(int fd, char *buf)
 
 static int send_msg(int fd, char *buf, int len)
 {
-	char len_flag[2];
+	uint8_t len_flag[4];
 	struct iovec sendbuf[2];
 
-	len_flag[1] = len & 0xff;
-	len_flag[0] = (len & 0xff00) >> 8;
+	len_flag[3] = len & 0xff;
+	len_flag[2] = (len & 0xff00) >> 8;
+	len_flag[1] = (len & 0xff0000) >> 16;
+	len_flag[0] = (len & 0xff000000) >> 24;
 	sendbuf[0].iov_base = len_flag;
-	sendbuf[0].iov_len = 2;
+	sendbuf[0].iov_len = 4;
 	sendbuf[1].iov_base = buf;
 	sendbuf[1].iov_len = len;
-	int ret = writevn(fd, sendbuf, 2, len + 2);
-	assert(ret == len + 2); (void)ret;
+	int ret = writevn(fd, sendbuf, 2, len + 4);
+	assert(ret == len + 4); (void)ret;
 	return 0;
 }
 
