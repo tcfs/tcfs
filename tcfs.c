@@ -43,7 +43,7 @@ static int get_reply(int fd, char *buf)
 	ret = readn(fd, buf, 2);
 	if (ret <= 0)
 		return ret;
-	n = *buf * 256 + *(buf+1);
+	n = *(uint8_t *)buf * 256 + *(uint8_t *)(buf+1);
 	ret = readn(fd, buf, n);
 	assert(ret == n);
 	return ret;
