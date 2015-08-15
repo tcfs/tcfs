@@ -33,7 +33,7 @@
 
 struct tcfs_ctx_s {
 	int sockfd;
-	char buf[4096];
+	char buf[4096 * 1024]; /* 4 MB */
 };
 
 static int get_reply(int fd, char *buf)
