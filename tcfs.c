@@ -302,8 +302,8 @@ static int tcfs_read(const char *path, char *rbuf, size_t size, off_t offset,
 	ret = get_reply(sock, tc->buf);
 	assert(ret >= 4); (void)ret;
 	readed = buf_get_uint32(tc->buf);
-	if (readed <= 0)
-		return readed;
+	if ((int)readed <= 0)
+		return (int)readed;
 	memcpy(rbuf, tc->buf + 4, readed);
 	return readed;
 }
