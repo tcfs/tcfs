@@ -203,11 +203,25 @@ static int tcfs_rename(const char *path, const char *newpath)
 
 static int tcfs_chmod(const char *path, mode_t mode)
 {
-	int retstat = -1;
+	int retstat;
+	int len;
+	struct tcfs_ctx_s *tc = fuse_get_context()->private_data;
+	int sock = tc->sockfd;
+	ssize_t ret;
 
-	/* TODO */
-	debug_print("path: %s", path);
-	return retstat;
+	len = sprintf(tc->buf, "chmod");
+	buf_add_uint32(tc->buf + len, mode);
+	len += 4;
+	len += sprintf(tc->buf + len, "%s", path);
+	(void)send_msg(sock, tc->buf, len);
+	ret = get_reply(sock, tc->buf);
+	retstat = buf_get_uint32(tc->buf);
+	if (retstat != 0) {
+		errno = retstat;
+		return -1;
+	}
+	assert(ret == 4); (void)ret;
+	return 0;
 }
 
 static int tcfs_chown(const char *path, uid_t uid, gid_t gid)
