@@ -1,6 +1,6 @@
 # TCFS
 
-TCFS, a Toy Cloud File System.
+TCFS, a Lightweight Network File System.
 
 ## How to use?
 
