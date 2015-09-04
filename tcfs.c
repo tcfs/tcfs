@@ -31,6 +31,30 @@
 
 #define ARRAY_SIZE(array) (sizeof(array) / sizeof(array[0]))
 
+#define SETOP(buf, opcode) ({buf_add_uint32((buf), (opcode)); 4;})
+
+enum tcfs_op {
+	GETATTR  = 0x01,
+	READLINK = 0x02,
+	GETDIR   = 0x03,
+	MKNOD    = 0x04,
+	MKDIR    = 0x05,
+	SYMLINK  = 0x06,
+	UNLINK   = 0x07,
+	RMDIR    = 0x08,
+	RENAME   = 0x09,
+	CHMOD    = 0x0A,
+	CHOWN    = 0x0B,
+	TRUNCATE = 0x0C,
+	UTIME    = 0x0D,
+	OPEN     = 0x0E,
+	READ     = 0x0F,
+	WRITE    = 0x10,
+	READDIR  = 0x11,
+	RELEASE  = 0x12,
+	CREATE   = 0x13,
+};
+
 struct tcfs_ctx_s {
 	int sockfd;
 	char buf[4096 * 1024]; /* 4 MB */
@@ -76,7 +100,8 @@ static int tcfs_getattr(const char *path, struct stat *statbuf)
 	ssize_t ret;
 
 	debug_print("path: %s", path);
-	len = sprintf(tc->buf, "getattr%s", path);
+	len = SETOP(tc->buf, GETATTR);
+	len += sprintf(tc->buf + len, "%s", path);
 	(void)send_msg(sock, tc->buf, len);
 	ret = get_reply(sock, tc->buf);
 	retstat = buf_get_uint32(tc->buf);
@@ -132,7 +157,7 @@ static int tcfs_mkdir(const char *path, mode_t mode)
 	int sock = tc->sockfd;
 	ssize_t ret;
 
-	len = sprintf(tc->buf, "mkdir");
+	len = SETOP(tc->buf, MKDIR);
 	buf_add_uint32(tc->buf + len, mode);
 	len += 4;
 	len += sprintf(tc->buf + len, "%s", path);
@@ -162,7 +187,7 @@ static int tcfs_unlink(const char *path)
 	int sock = tc->sockfd;
 	ssize_t ret;
 
-	len = sprintf(tc->buf, "unlink");
+	len = SETOP(tc->buf, UNLINK);
 	len += sprintf(tc->buf + len, "%s", path);
 	(void)send_msg(sock, tc->buf, len);
 	ret = get_reply(sock, tc->buf);
@@ -181,7 +206,7 @@ static int tcfs_rmdir(const char *path)
 	int sock = tc->sockfd;
 	ssize_t ret;
 
-	len = sprintf(tc->buf, "rmdir");
+	len = SETOP(tc->buf, RMDIR);
 	len += sprintf(tc->buf + len, "%s", path);
 	(void)send_msg(sock, tc->buf, len);
 	ret = get_reply(sock, tc->buf);
@@ -209,7 +234,7 @@ static int tcfs_chmod(const char *path, mode_t mode)
 	int sock = tc->sockfd;
 	ssize_t ret;
 
-	len = sprintf(tc->buf, "chmod");
+	len = SETOP(tc->buf, CHMOD);
 	buf_add_uint32(tc->buf + len, mode);
 	len += 4;
 	len += sprintf(tc->buf + len, "%s", path);
@@ -241,7 +266,7 @@ static int tcfs_truncate(const char *path, off_t newsize)
 	int sock = tc->sockfd;
 	ssize_t ret;
 
-	len = sprintf(tc->buf, "truncate");
+	len = SETOP(tc->buf, TRUNCATE);
 	buf_add_uint32(tc->buf + len, newsize);
 	len += 4;
 	len += sprintf(tc->buf + len, "%s", path);
@@ -260,7 +285,7 @@ static int tcfs_utime(const char *path, struct utimbuf *ubuf)
 	int sock = tc->sockfd;
 	ssize_t ret;
 
-	len = sprintf(tc->buf, "utime");
+	len = SETOP(tc->buf, UTIME);
 	buf_add_uint64(tc->buf + len, ubuf->actime);
 	len += 8;
 	buf_add_uint64(tc->buf + len, ubuf->modtime);
@@ -281,7 +306,7 @@ static int tcfs_open(const char *path, struct fuse_file_info *fi)
 	int sock = tc->sockfd;
 	ssize_t ret;
 
-	len = sprintf(tc->buf, "open");
+	len = SETOP(tc->buf, OPEN);
 	buf_add_uint32(tc->buf + len, fi->flags);
 	len += 4;
 	len += sprintf(tc->buf + len, "%s", path);
@@ -307,7 +332,7 @@ static int tcfs_read(const char *path, char *rbuf, size_t size, off_t offset,
 	ssize_t ret;
 	int readed;
 
-	len = sprintf(tc->buf, "read");
+	len = SETOP(tc->buf, READ);
 	buf_add_uint32(tc->buf + len, fi->fh);
 	buf_add_uint32(tc->buf + len + 4, offset);
 	buf_add_uint32(tc->buf + len + 8, size);
@@ -332,7 +357,7 @@ static int tcfs_write(const char *path, const char *wbuf, size_t size,
 	ssize_t ret;
 	int readed;
 
-	len = sprintf(tc->buf, "write");
+	len = SETOP(tc->buf, WRITE);
 	buf_add_uint32(tc->buf + len, fi->fh);
 	buf_add_uint32(tc->buf + len + 4, offset);
 	buf_add_uint32(tc->buf + len + 8, size);
@@ -356,7 +381,8 @@ static int tcfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	ssize_t ret;
 
 	debug_print("path: %s", path);
-	len = sprintf(tc->buf, "readdir%s", path);
+	len = SETOP(tc->buf, READDIR);
+	len += sprintf(tc->buf + len, "%s", path);
 	(void)send_msg(sock, tc->buf, len);
 	ret = get_reply(sock, tc->buf);
 	retstat = buf_get_uint32(tc->buf);
@@ -383,7 +409,7 @@ static int tcfs_release(const char *path, struct fuse_file_info *fi)
 	int sock = tc->sockfd;
 	ssize_t ret;
 
-	len = sprintf(tc->buf, "release");
+	len = SETOP(tc->buf, RELEASE);
 	buf_add_uint32(tc->buf + len, fi->fh);
 	len += 4;
 	(void)send_msg(sock, tc->buf, len);
@@ -402,7 +428,7 @@ static int tcfs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 	ssize_t ret;
 
 	debug_print("create: %s", path);
-	len = sprintf(tc->buf, "create");
+	len = SETOP(tc->buf, CREATE);
 	buf_add_uint32(tc->buf + len, mode);
 	len += 4;
 	len += sprintf(tc->buf + len, "%s", path);
