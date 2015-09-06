@@ -8,7 +8,7 @@ all:: $(TARGET)
 
 tcfs.o: CFLAGS += $(FUSE_CFLAGS)
 
-tcfs: tcfs.o utils.o
+tcfs: tcfs.o utils.o encrypt.o rc4.o
 	$(CC) $^ -o $@ -lfuse
 
 clean::

@@ -13,6 +13,7 @@
 #include <fuse.h>
 
 #include "utils.h"
+#include "encrypt.h"
 
 #define ANSI_COLOR_RED     "\x1b[31m"
 #define ANSI_COLOR_GREEN   "\x1b[32m"
@@ -58,9 +59,13 @@ enum tcfs_op {
 struct tcfs_ctx_s {
 	int sockfd;
 	char buf[4096 * 1024]; /* 4 MB */
+	struct encryptor *encryptor;
+	int (*tcfs_recv)(struct encryptor *decryptor, int fd, char *buf);
+	int (*tcfs_write)(struct encryptor *encryptor, int fd,
+				char *buf, int len);
 };
 
-static int get_reply(int fd, char *buf)
+static int _get_reply(int fd, char *buf)
 {
 	int ret, n;
 
@@ -73,7 +78,27 @@ static int get_reply(int fd, char *buf)
 	return ret;
 }
 
-static int send_msg(int fd, char *buf, int len)
+static int get_reply(struct encryptor *_nil, int fd, char *buf)
+{
+	return _get_reply(fd, buf);
+}
+
+static int decrypt_get_replay(struct encryptor *decryptor, int fd, char *buf)
+{
+	int ret, n;
+
+	ret = readn(fd, buf, 4);
+	if (ret <= 0)
+		return ret;
+	decrypt(decryptor, (uint8_t *)buf, (uint8_t *)buf, 4);
+	n = buf_get_uint32(buf);
+	ret = readn(fd, buf, n);
+	assert(ret == n);
+	decrypt(decryptor, (uint8_t *)buf, (uint8_t *)buf, n);
+	return ret;
+}
+
+static int _send_msg(int fd, char *buf, int len)
 {
 	uint8_t len_flag[4];
 	struct iovec sendbuf[2];
@@ -82,6 +107,32 @@ static int send_msg(int fd, char *buf, int len)
 	len_flag[2] = (len & 0xff00) >> 8;
 	len_flag[1] = (len & 0xff0000) >> 16;
 	len_flag[0] = (len & 0xff000000) >> 24;
+	sendbuf[0].iov_base = len_flag;
+	sendbuf[0].iov_len = 4;
+	sendbuf[1].iov_base = buf;
+	sendbuf[1].iov_len = len;
+	int ret = writevn(fd, sendbuf, 2, len + 4);
+	assert(ret == len + 4); (void)ret;
+	return 0;
+}
+
+static int send_msg(struct encryptor *_nil, int fd, char *buf, int len)
+{
+	return _send_msg(fd, buf, len);
+}
+
+static int encrypt_send_msg(struct encryptor *encryptor, int fd,
+				char *buf, int len)
+{
+	uint8_t len_flag[4];
+	struct iovec sendbuf[2];
+
+	len_flag[3] = len & 0xff;
+	len_flag[2] = (len & 0xff00) >> 8;
+	len_flag[1] = (len & 0xff0000) >> 16;
+	len_flag[0] = (len & 0xff000000) >> 24;
+	encrypt(encryptor, len_flag, len_flag, 4);
+	encrypt(encryptor, (uint8_t *)buf, (uint8_t *)buf, len);
 	sendbuf[0].iov_base = len_flag;
 	sendbuf[0].iov_len = 4;
 	sendbuf[1].iov_base = buf;
@@ -102,8 +153,8 @@ static int tcfs_getattr(const char *path, struct stat *statbuf)
 	debug_print("path: %s", path);
 	len = SETOP(tc->buf, GETATTR);
 	len += sprintf(tc->buf + len, "%s", path);
-	(void)send_msg(sock, tc->buf, len);
-	ret = get_reply(sock, tc->buf);
+	tc->tcfs_write(tc->encryptor, sock, tc->buf, len);
+	ret = tc->tcfs_recv(tc->encryptor, sock, tc->buf);
 	retstat = buf_get_uint32(tc->buf);
 	memset(statbuf, 0, sizeof(*statbuf));
 	if (retstat != 0)
@@ -157,12 +208,13 @@ static int tcfs_mkdir(const char *path, mode_t mode)
 	int sock = tc->sockfd;
 	ssize_t ret;
 
+	debug_print("path: %s", path);
 	len = SETOP(tc->buf, MKDIR);
 	buf_add_uint32(tc->buf + len, mode);
 	len += 4;
 	len += sprintf(tc->buf + len, "%s", path);
-	(void)send_msg(sock, tc->buf, len);
-	ret = get_reply(sock, tc->buf);
+	tc->tcfs_write(tc->encryptor, sock, tc->buf, len);
+	ret = tc->tcfs_recv(tc->encryptor, sock, tc->buf);
 	retstat = buf_get_uint32(tc->buf);
 	if (retstat != 0)
 		return retstat;
@@ -187,10 +239,11 @@ static int tcfs_unlink(const char *path)
 	int sock = tc->sockfd;
 	ssize_t ret;
 
+	debug_print("path: %s", path);
 	len = SETOP(tc->buf, UNLINK);
 	len += sprintf(tc->buf + len, "%s", path);
-	(void)send_msg(sock, tc->buf, len);
-	ret = get_reply(sock, tc->buf);
+	tc->tcfs_write(tc->encryptor, sock, tc->buf, len);
+	ret = tc->tcfs_recv(tc->encryptor, sock, tc->buf);
 	retstat = buf_get_uint32(tc->buf);
 	if (retstat != 0)
 		return retstat;
@@ -206,10 +259,11 @@ static int tcfs_rmdir(const char *path)
 	int sock = tc->sockfd;
 	ssize_t ret;
 
+	debug_print("path: %s", path);
 	len = SETOP(tc->buf, RMDIR);
 	len += sprintf(tc->buf + len, "%s", path);
-	(void)send_msg(sock, tc->buf, len);
-	ret = get_reply(sock, tc->buf);
+	tc->tcfs_write(tc->encryptor, sock, tc->buf, len);
+	ret = tc->tcfs_recv(tc->encryptor, sock, tc->buf);
 	retstat = buf_get_uint32(tc->buf);
 	if (retstat != 0)
 		return retstat;
@@ -222,7 +276,7 @@ static int tcfs_rename(const char *path, const char *newpath)
 	int retstat = -1;
 
 	/* TODO */
-	debug_print("path: %s", path);
+	debug_print("path: %s, newpath %s", path, newpath);
 	return retstat;
 }
 
@@ -234,12 +288,13 @@ static int tcfs_chmod(const char *path, mode_t mode)
 	int sock = tc->sockfd;
 	ssize_t ret;
 
+	debug_print("path: %s", path);
 	len = SETOP(tc->buf, CHMOD);
 	buf_add_uint32(tc->buf + len, mode);
 	len += 4;
 	len += sprintf(tc->buf + len, "%s", path);
-	(void)send_msg(sock, tc->buf, len);
-	ret = get_reply(sock, tc->buf);
+	tc->tcfs_write(tc->encryptor, sock, tc->buf, len);
+	ret = tc->tcfs_recv(tc->encryptor, sock, tc->buf);
 	retstat = buf_get_uint32(tc->buf);
 	if (retstat != 0) {
 		errno = retstat;
@@ -266,12 +321,13 @@ static int tcfs_truncate(const char *path, off_t newsize)
 	int sock = tc->sockfd;
 	ssize_t ret;
 
+	debug_print("path: %s", path);
 	len = SETOP(tc->buf, TRUNCATE);
 	buf_add_uint32(tc->buf + len, newsize);
 	len += 4;
 	len += sprintf(tc->buf + len, "%s", path);
-	(void)send_msg(sock, tc->buf, len);
-	ret = get_reply(sock, tc->buf);
+	tc->tcfs_write(tc->encryptor, sock, tc->buf, len);
+	ret = tc->tcfs_recv(tc->encryptor, sock, tc->buf);
 	assert(ret == 4); (void)ret;
 	retstat = buf_get_uint32(tc->buf);
 	return retstat;
@@ -285,14 +341,15 @@ static int tcfs_utime(const char *path, struct utimbuf *ubuf)
 	int sock = tc->sockfd;
 	ssize_t ret;
 
+	debug_print("path: %s", path);
 	len = SETOP(tc->buf, UTIME);
 	buf_add_uint64(tc->buf + len, ubuf->actime);
 	len += 8;
 	buf_add_uint64(tc->buf + len, ubuf->modtime);
 	len += 8;
 	len += sprintf(tc->buf + len, "%s", path);
-	(void)send_msg(sock, tc->buf, len);
-	ret = get_reply(sock, tc->buf);
+	tc->tcfs_write(tc->encryptor, sock, tc->buf, len);
+	ret = tc->tcfs_recv(tc->encryptor, sock, tc->buf);
 	assert(ret == 4); (void)ret;
 	retstat = buf_get_uint32(tc->buf);
 	return retstat;
@@ -306,12 +363,13 @@ static int tcfs_open(const char *path, struct fuse_file_info *fi)
 	int sock = tc->sockfd;
 	ssize_t ret;
 
+	debug_print("path: %s", path);
 	len = SETOP(tc->buf, OPEN);
 	buf_add_uint32(tc->buf + len, fi->flags);
 	len += 4;
 	len += sprintf(tc->buf + len, "%s", path);
-	(void)send_msg(sock, tc->buf, len);
-	ret = get_reply(sock, tc->buf);
+	tc->tcfs_write(tc->encryptor, sock, tc->buf, len);
+	ret = tc->tcfs_recv(tc->encryptor, sock, tc->buf);
 	retstat = buf_get_uint32(tc->buf);
 	if (retstat != 0) {
 		fi->fh = -1;
@@ -332,14 +390,15 @@ static int tcfs_read(const char *path, char *rbuf, size_t size, off_t offset,
 	ssize_t ret;
 	int readed;
 
+	debug_print("path: %s", path);
 	len = SETOP(tc->buf, READ);
 	buf_add_uint32(tc->buf + len, fi->fh);
 	buf_add_uint32(tc->buf + len + 4, offset);
 	buf_add_uint32(tc->buf + len + 8, size);
 	len += 12;
 	len += sprintf(tc->buf + len, "%s", path);
-	(void)send_msg(sock, tc->buf, len);
-	ret = get_reply(sock, tc->buf);
+	tc->tcfs_write(tc->encryptor, sock, tc->buf, len);
+	ret = tc->tcfs_recv(tc->encryptor, sock, tc->buf);
 	assert(ret >= 4); (void)ret;
 	readed = buf_get_uint32(tc->buf);
 	if (readed <= 0)
@@ -357,15 +416,17 @@ static int tcfs_write(const char *path, const char *wbuf, size_t size,
 	ssize_t ret;
 	int readed;
 
+	debug_print("path: %s", path);
 	len = SETOP(tc->buf, WRITE);
 	buf_add_uint32(tc->buf + len, fi->fh);
 	buf_add_uint32(tc->buf + len + 4, offset);
 	buf_add_uint32(tc->buf + len + 8, size);
+	debug_print("size: %d", (int)size);
 	len += 12;
 	memcpy(tc->buf + len, wbuf, size);
 	len += size;
-	(void)send_msg(sock, tc->buf, len);
-	ret = get_reply(sock, tc->buf);
+	tc->tcfs_write(tc->encryptor, sock, tc->buf, len);
+	ret = tc->tcfs_recv(tc->encryptor, sock, tc->buf);
 	assert(ret >= 4); (void)ret;
 	readed = buf_get_uint32(tc->buf);
 	return readed;
@@ -383,8 +444,8 @@ static int tcfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	debug_print("path: %s", path);
 	len = SETOP(tc->buf, READDIR);
 	len += sprintf(tc->buf + len, "%s", path);
-	(void)send_msg(sock, tc->buf, len);
-	ret = get_reply(sock, tc->buf);
+	tc->tcfs_write(tc->encryptor, sock, tc->buf, len);
+	ret = tc->tcfs_recv(tc->encryptor, sock, tc->buf);
 	retstat = buf_get_uint32(tc->buf);
 	if (retstat != 0)
 		return retstat;
@@ -409,11 +470,12 @@ static int tcfs_release(const char *path, struct fuse_file_info *fi)
 	int sock = tc->sockfd;
 	ssize_t ret;
 
+	debug_print("path: %s", path);
 	len = SETOP(tc->buf, RELEASE);
 	buf_add_uint32(tc->buf + len, fi->fh);
 	len += 4;
-	(void)send_msg(sock, tc->buf, len);
-	ret = get_reply(sock, tc->buf);
+	tc->tcfs_write(tc->encryptor, sock, tc->buf, len);
+	ret = tc->tcfs_recv(tc->encryptor, sock, tc->buf);
 	assert(ret == 4); (void)ret;
 	retstat = buf_get_uint32(tc->buf);
 	return retstat;
@@ -432,8 +494,8 @@ static int tcfs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 	buf_add_uint32(tc->buf + len, mode);
 	len += 4;
 	len += sprintf(tc->buf + len, "%s", path);
-	(void)send_msg(sock, tc->buf, len);
-	ret = get_reply(sock, tc->buf);
+	tc->tcfs_write(tc->encryptor, sock, tc->buf, len);
+	ret = tc->tcfs_recv(tc->encryptor, sock, tc->buf);
 	retstat = buf_get_uint32(tc->buf);
 	if (retstat != 0) {
 		fi->fh = -1;
@@ -476,6 +538,8 @@ static void usage(char **argv)
 			" -d --debug               Show debug info\n"
 			" -s --server <server-ip>  Specify server ipaddr\n"
 			" -p --port <server-port>  Specify server port\n"
+			" -m --method <rc4>        Specify encryption method\n"
+			" -k --key <password>      Specify password\n"
 			"\n", argv[0]);
 }
 
@@ -484,8 +548,36 @@ static struct option long_opts[] = {
 	{"debug",	no_argument, 0, 'd'},
 	{"server",	required_argument, 0, 's'},
 	{"port",	required_argument, 0, 'p'},
+	{"method",	required_argument, 0, 'm'},
+	{"key",		required_argument, 0, 'k'},
 	{0, 0, 0, 0}
 };
+
+struct tcfs_ctx_s *create_tcfs(const char *server_ip, uint16_t server_port,
+			enum encrypt_method encry_method, const char *key)
+{
+	struct tcfs_ctx_s *tcfs_data = calloc(1, sizeof(*tcfs_data));
+	if (tcfs_data == NULL) {
+		perror("calloc");
+		exit(errno);
+	}
+	tcfs_data->sockfd = client_connect(server_ip, server_port);
+	if (tcfs_data->sockfd < 0) {
+		fprintf(stderr, "client_connect failed: %s\n", strerror(errno));
+		exit(errno);
+	}
+	if (encry_method != NO_ENCRYPT && key != NULL) {
+		tcfs_data->encryptor = create_encryptor(encry_method,
+							(const uint8_t *)key,
+							strlen(key));
+		tcfs_data->tcfs_recv = decrypt_get_replay;
+		tcfs_data->tcfs_write = encrypt_send_msg;
+	} else {
+		tcfs_data->tcfs_recv = get_reply;
+		tcfs_data->tcfs_write = send_msg;
+	}
+	return tcfs_data;
+}
 
 int main(int argc, char **argv)
 {
@@ -497,9 +589,11 @@ int main(int argc, char **argv)
 	struct tcfs_ctx_s *tcfs_data;
 	int opt, index;
 	bool is_debug = false;
+	enum encrypt_method encry_method = NO_ENCRYPT;
+	const char *key = NULL;
 
 	while ((opt = getopt_long(argc, argv,
-			"hds:p:", long_opts, &index)) != -1) {
+			"hds:p:m:k:", long_opts, &index)) != -1) {
 		switch (opt) {
 		case 's':
 			server = optarg;
@@ -509,6 +603,13 @@ int main(int argc, char **argv)
 			break;
 		case 'd':
 			is_debug = true;
+			break;
+		case 'm':
+			if (!strcmp("rc4", optarg))
+				encry_method = RC4_METHOD;
+			break;
+		case 'k':
+			key = optarg;
 			break;
 		case '0':
 		case 'h':
@@ -522,13 +623,7 @@ int main(int argc, char **argv)
 		exit(1);
 	} else
 		mount_point = argv[optind];
-	tcfs_data = calloc(1, sizeof(*tcfs_data));
-	if (tcfs_data == NULL) {
-		perror("calloc");
-		exit(1);
-	}
-	tcfs_data->sockfd = client_connect(server, port);
-	assert(tcfs_data->sockfd > 0);
+	tcfs_data = create_tcfs(server, port, encry_method, key);
 	fuse_argc = 0;
 	fuse_argv[fuse_argc++] = "tcfs";
 	fuse_argv[fuse_argc++] = "-s"; /* single thread */
