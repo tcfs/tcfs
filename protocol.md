@@ -1,6 +1,6 @@
 # TCFS Protocol
 
-- OPCODE: 
+## OPCODE: 
 
 ```
 getattr  = 0x01
@@ -24,9 +24,9 @@ release  = 0x12
 create   = 0x13
 ```
 
-- Messages Format
+## Messages Format
 
- * GETATTR Message
+* GETATTR Message
 
    - GETATTR REQUEST
 
@@ -57,7 +57,7 @@ create   = 0x13
 ```
 
 
- * MKDIR Message
+* MKDIR Message
 
    - MKDIR REQUEST
 
@@ -85,7 +85,7 @@ create   = 0x13
  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ```
 
- * UNLINK Message
+* UNLINK Message
 
    - UNLINK REQUEST
 
@@ -113,7 +113,7 @@ create   = 0x13
  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ```
 
- * RMDIR Message
+* RMDIR Message
 
    - RMDIR REQUEST
 
@@ -141,7 +141,7 @@ create   = 0x13
  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ```
 
- * CHMOD Message
+* CHMOD Message
 
    - CHMOD REQUEST
 
@@ -169,7 +169,7 @@ create   = 0x13
  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ```
 
- * TRUNCATE Message
+* TRUNCATE Message
 
    - TRUNCATE REQUEST
 
@@ -197,7 +197,7 @@ create   = 0x13
  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ```
 
- * UTIME Message
+* UTIME Message
 
    - UTIME REQUEST
 
@@ -231,7 +231,7 @@ create   = 0x13
  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ```
 
- * OPEN Message
+* OPEN Message
 
    - OPEN REQUEST
 
@@ -259,7 +259,7 @@ create   = 0x13
  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ```
 
- * READ Message
+* READ Message
 
    - READ REQUEST
 
@@ -289,7 +289,7 @@ create   = 0x13
  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ```
 
- * WRITE Message
+* WRITE Message
 
    - WRITE REQUEST
 
@@ -317,7 +317,7 @@ create   = 0x13
  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ```
 
- * READDIR Message
+* READDIR Message
 
    - READDIR REQUEST
 
@@ -347,7 +347,7 @@ create   = 0x13
  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ```
 
- * RELEASE Message
+* RELEASE Message
 
    - RELEASE REQUEST
 
@@ -375,7 +375,7 @@ create   = 0x13
  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ```
 
- * CREATE Message
+* CREATE Message
 
    - CREATE REQUEST
 
