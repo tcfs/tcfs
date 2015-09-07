@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "rc4.h"
+#include "md5.h"
 
 enum encrypt_method {
 	NO_ENCRYPT = 0,

@@ -4,15 +4,20 @@ struct encryptor *create_encryptor(enum encrypt_method method,
 					 const uint8_t *key, size_t key_len)
 {
 	struct encryptor *encryptor;
+	MD5_CTX md5;
+	uint8_t md5secret[16];
 
 	switch (method) {
 	case RC4_METHOD:
-		encryptor = calloc(1, sizeof(typeof(*encryptor)) + key_len);
+		MD5_Init(&md5);
+		MD5_Update(&md5, key, key_len);
+		MD5_Final(md5secret, &md5);
+		encryptor = calloc(1, sizeof(typeof(*encryptor)) + 16);
 		encryptor->enc_method = method;
-		encryptor->rc4_enc.key_len = key_len;
-		memcpy(encryptor->rc4_enc.key, key, key_len);
-		rc4_init(&encryptor->rc4_enc.en_state, key, key_len);
-		rc4_init(&encryptor->rc4_enc.de_state, key, key_len);
+		encryptor->rc4_enc.key_len = 16;
+		memcpy(encryptor->rc4_enc.key, md5secret, 16);
+		rc4_init(&encryptor->rc4_enc.en_state, md5secret, 16);
+		rc4_init(&encryptor->rc4_enc.de_state, md5secret, 16);
 		return encryptor;
 	default:
 		fprintf(stderr, "not support %d", method);
