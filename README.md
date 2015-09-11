@@ -34,3 +34,6 @@ fusermount -u mountpoint
 # or sudo umount mountpoint
 ```
 
+## Protocol
+
+[TCFS protocol](protocol.adoc)
