@@ -131,7 +131,6 @@ void buf_add_uint32(char *buf, uint32_t val)
 
 uint64_t buf_get_uint62(const char *buf)
 {
-
 	uint32_t val1;
 	uint32_t val2;
 	uint64_t ret;
@@ -144,7 +143,6 @@ uint64_t buf_get_uint62(const char *buf)
 
 void buf_add_uint64(char *buf, uint64_t val)
 {
-
 	uint64_t nval = htobe64(val);
 	memcpy(buf, &nval, sizeof nval);
 }
